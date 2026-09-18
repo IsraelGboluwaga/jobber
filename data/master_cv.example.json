@@ -1,0 +1,51 @@
+{
+  "contact": {
+    "name": "Your Name",
+    "email": "you@example.com",
+    "phone": "+234...",
+    "location": "Lagos, Nigeria",
+    "links": {
+      "github": "https://github.com/you",
+      "linkedin": "https://linkedin.com/in/you",
+      "website": "https://you.dev"
+    }
+  },
+  "summary": "One paragraph professional summary written in your own words. This is the source of truth; the pipeline reweights and rephrases it per job but never invents claims.",
+  "experience": [
+    {
+      "company": "Acme Corp",
+      "title": "Senior Backend Engineer",
+      "location": "Remote",
+      "start": "2022-01",
+      "end": "present",
+      "highlights": [
+        "Led migration of the billing service to event-driven architecture, cutting p99 latency 40%.",
+        "Owned the payments API used by 2M monthly users."
+      ],
+      "stack": ["Python", "PostgreSQL", "Kafka", "AWS"]
+    },
+    {
+      "company": "Startup Inc",
+      "title": "Backend Engineer",
+      "location": "Lagos, Nigeria",
+      "start": "2019-06",
+      "end": "2021-12",
+      "highlights": [
+        "Built the core REST API and CI/CD pipeline from scratch."
+      ],
+      "stack": ["Django", "Redis", "Docker"]
+    }
+  ],
+  "skills": [
+    "Python", "Go", "PostgreSQL", "Kafka", "AWS", "Docker", "Kubernetes",
+    "REST APIs", "gRPC", "System design", "CI/CD"
+  ],
+  "education": [
+    {
+      "institution": "University of Example",
+      "degree": "B.Sc. Computer Science",
+      "start": "2015",
+      "end": "2019"
+    }
+  ]
+}

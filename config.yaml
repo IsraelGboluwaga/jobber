@@ -1,0 +1,90 @@
+# Daily job-search pipeline — all tunables live here.
+# Nothing secret goes in this file. Secrets come from environment variables
+# (see .env.example). This file IS committed.
+
+search:
+  titles:
+    - Senior Backend Engineer
+    - Staff Backend Engineer
+    - Senior Software Engineer
+    - AI Engineer
+    - LLM Engineer
+  # Concrete query strings JobSpy actually fetches. This layer is kept in sync
+  # with geo.welcome_regions below: every welcomed region maps to at least one
+  # searchable location string here, or it is never fetched. Conceptual buckets
+  # map to concrete queries (Middle East -> United Arab Emirates, EU -> member
+  # states you care about).
+  locations:
+    - United Kingdom          # UK
+    - Ireland                 # Ireland
+    - Netherlands             # EU
+    - Germany                 # EU
+    - Australia               # Australia
+    - New Zealand             # New Zealand
+    - United Arab Emirates    # Middle East
+    - Qatar                   # Middle East
+    - Singapore               # Singapore
+    - Remote
+  count: 10            # target roles to tailor + write per run
+  hard_max: 15         # absolute ceiling per run, enforced in code before the LLM loop
+  seniority:
+    - mid-level
+    - senior
+    - staff
+  max_age_days: 30     # skip postings older than this
+  # JobSpy consumer boards to query. Drop LinkedIn if it rate-limits you.
+  boards:
+    - indeed
+    - linkedin
+    - glassdoor
+    - google
+  # country_indeed drives Indeed/Glassdoor regional endpoints for non-remote searches.
+  country_indeed: United Kingdom
+
+geo:
+  exclude_countries: [India]                                  # hard drop, never surface
+  # Conceptual buckets the viability step labels against. Keep every entry
+  # reachable from search.locations above (New Zealand treated like Australia:
+  # skilled-migration / accredited-employer sponsorship routes exist).
+  welcome_regions: [UK, Ireland, EU, Australia, New Zealand, Middle East, Singapore]
+  remote_africa_signals: [worldwide, global, anywhere, EMEA, Africa, Kenya, South Africa, Nigeria]
+  onsite_dead_regions: [US, Canada]                           # onsite/hybrid here = drop
+  # A region in NONE of the lists above and not remote-Africa-eligible follows
+  # this rule: low = surface ranked last, drop = remove. Never left unhandled.
+  unlisted_region: low                                        # low | drop
+  # When true, drop any row whose classified sponsorship == "no".
+  hard_sponsorship_filter: false
+
+salary:
+  min_usd: 30000
+  max_usd: 200000
+  # Manual FX refresh. Multiply local amount by factor to get USD.
+  fx:
+    USD: 1.0
+    GBP: 1.27
+    EUR: 1.08
+    AUD: 0.66
+    SGD: 0.74
+    CAD: 0.73
+
+source:
+  # Rank postings whose direct apply URL resolves to a company ATS
+  # (Greenhouse/Lever/Ashby) above plain board listings.
+  prefer_direct: true
+
+llm:
+  provider: deepseek
+  model: deepseek-flash
+  base_url: https://api.deepseek.com   # OpenAI-compatible endpoint
+  thinking: false                       # DeepSeek: off by default; sent explicitly when false
+  max_tokens_cv: 1500
+  max_tokens_answers: 800
+  # Pre-flight budget guard. Aborts the run if the estimate exceeds the ceiling.
+  rough_tokens_per_job: 4000
+  budget_ceiling_tokens: 80000
+
+rollover:
+  archive_new_after_days: 14   # New rows older than this move out of the working view
+
+notify:
+  ntfy_topic: jobba-alert   # override with NTFY_TOPIC env if set
