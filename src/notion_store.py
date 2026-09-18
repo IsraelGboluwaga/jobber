@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-from typing import Any, Optional
+from typing import Any, cast
 
 from .acquire import Job
 
@@ -34,7 +34,7 @@ def _chunks(text: str, size: int = RICH_TEXT_LIMIT) -> list[str]:
     return [text[i:i + size] for i in range(0, len(text), size)] or [""]
 
 
-def _rich(text: str, link: Optional[str] = None) -> list[dict]:
+def _rich(text: str, link: str | None = None) -> list[dict]:
     out = []
     for chunk in _chunks(text):
         rt: dict[str, Any] = {"type": "text", "text": {"content": chunk}}
@@ -100,18 +100,30 @@ class NotionStore:
             raise RuntimeError("NOTION_TOKEN and NOTION_DATABASE_ID must be set.")
         self.client = Client(auth=token)
         self.cfg = cfg
+        self._data_source_id: str | None = None
+
+    def _get_data_source_id(self) -> str:
+        """Notion's 2025-09 API split each database into one or more data
+        sources; querying rows now goes through data_sources, not databases."""
+        if self._data_source_id is None:
+            db = cast(dict, self.client.databases.retrieve(database_id=self.database_id))
+            sources = db.get("data_sources") or []
+            if not sources:
+                raise RuntimeError(f"Notion database {self.database_id} has no data sources.")
+            self._data_source_id = str(sources[0]["id"])
+        return self._data_source_id
 
     # --- reads -----------------------------------------------------------
     def existing_job_ids(self) -> set[str]:
         """Every Job ID currently in the database, across ALL statuses."""
         ids: set[str] = set()
-        cursor: Optional[str] = None
+        cursor: str | None = None
         while True:
-            resp = self.client.databases.query(
-                database_id=self.database_id,
+            resp = cast(dict, self.client.data_sources.query(
+                data_source_id=self._get_data_source_id(),
                 start_cursor=cursor,
                 page_size=100,
-            )
+            ))
             for row in resp.get("results", []):
                 jid = _plain_text(row.get("properties", {}).get("Job ID"))
                 if jid:
@@ -126,11 +138,11 @@ class NotionStore:
     def insert(self, job: Job) -> str:
         """Create the row, its child tailored-CV page, and (if any) answers in
         the row body. Returns the row page id."""
-        today = dt.date.today().isoformat()
+        today = dt.datetime.now(tz=dt.UTC).date().isoformat()
         props = self._row_properties(job, today)
-        row = self.client.pages.create(
-            parent={"database_id": self.database_id}, properties=props
-        )
+        row = cast(dict, self.client.pages.create(
+            parent={"data_source_id": self._get_data_source_id()}, properties=props
+        ))
         row_id = row["id"]
 
         # 1) tailored CV on its own dedicated child page, linked from the property
@@ -148,19 +160,19 @@ class NotionStore:
 
         return row_id
 
-    def _create_cv_page(self, row_id: str, job: Job) -> Optional[str]:
+    def _create_cv_page(self, row_id: str, job: Job) -> str | None:
         title = f"Tailored CV — {job.company} — {job.title}"
         blocks = markdown_to_blocks(job.tailored_cv)
         try:
-            page = self.client.pages.create(
+            page = cast(dict, self.client.pages.create(
                 parent={"page_id": row_id},
                 properties={"title": {"title": _rich(title)}},
                 children=blocks[:100],
-            )
+            ))
             if len(blocks) > 100:
                 _append_children(self.client, page["id"], blocks[100:])
             return page.get("url")
-        except Exception as exc:  # a failed CV page must not lose the whole row
+        except Exception as exc:  # noqa: BLE001 - a failed CV page must not lose the whole row
             log.warning("Failed to create tailored-CV page for %s: %s", job.company, exc)
             return None
 
@@ -171,7 +183,7 @@ class NotionStore:
             blocks.append(_para(qa.get("answer", "")))
         try:
             _append_children(self.client, row_id, blocks)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - drafted answers are optional; never fail the row
             log.warning("Failed to append answers for %s: %s", job.company, exc)
 
     def _row_properties(self, job: Job, today: str) -> dict:
@@ -206,12 +218,12 @@ class NotionStore:
         """Archive New rows whose Date first seen is older than the configured
         window. Never touch Applying. Returns count archived."""
         days = int(self.cfg.rollover.get("archive_new_after_days", 14))
-        cutoff = (dt.date.today() - dt.timedelta(days=days)).isoformat()
+        cutoff = (dt.datetime.now(tz=dt.UTC).date() - dt.timedelta(days=days)).isoformat()
         archived = 0
-        cursor: Optional[str] = None
+        cursor: str | None = None
         while True:
-            resp = self.client.databases.query(
-                database_id=self.database_id,
+            resp = cast(dict, self.client.data_sources.query(
+                data_source_id=self._get_data_source_id(),
                 filter={
                     "and": [
                         {"property": "Status", "select": {"equals": NEW_STATUS}},
@@ -220,7 +232,7 @@ class NotionStore:
                 },
                 start_cursor=cursor,
                 page_size=100,
-            )
+            ))
             for row in resp.get("results", []):
                 self.client.pages.update(
                     page_id=row["id"],
@@ -240,7 +252,7 @@ def _set_select(props: dict, name: str, value: str) -> None:
         props[name] = {"select": {"name": str(value)[:100]}}
 
 
-def _plain_text(prop: Optional[dict]) -> str:
+def _plain_text(prop: dict | None) -> str:
     if not prop:
         return ""
     parts = prop.get("rich_text") or prop.get("title") or []

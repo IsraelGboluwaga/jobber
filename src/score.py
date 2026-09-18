@@ -8,7 +8,7 @@ the score is reproducible and defensible.
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from collections.abc import Iterable
 
 # A compact tech/skill lexicon. Multi-word phrases are checked as phrases; the
 # rest as word-boundary tokens. Extend freely — the score stays deterministic.
@@ -21,7 +21,7 @@ SKILL_LEXICON = {
     "postgresql", "postgres", "mysql", "mongodb", "redis", "cassandra",
     "kafka", "rabbitmq", "grpc", "graphql", "rest", "microservices",
     "docker", "kubernetes", "terraform", "aws", "gcp", "azure",
-    "ci/cd", "kubernetes", "serverless", "lambda", "prometheus", "grafana",
+    "ci/cd", "serverless", "lambda", "prometheus", "grafana",
     # concepts
     "system design", "distributed systems", "event-driven", "api design",
     "scalability", "observability", "sql", "nosql", "tdd", "agile",

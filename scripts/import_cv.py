@@ -25,8 +25,8 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.config import MASTER_CV_PATH, load_config  # noqa: E402
-from src.llm import complete, make_client  # noqa: E402
+from src.config import MASTER_CV_PATH, load_config
+from src.llm import complete, make_client
 
 EXPORT_TMPL = "https://docs.google.com/document/d/{doc_id}/export?format=txt"
 

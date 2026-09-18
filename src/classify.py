@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Optional
 
 from .acquire import Job
 
@@ -169,7 +168,7 @@ def _derive_geo(job: Job, cfg) -> None:
             job.region = job.region or region
     # If still unknown but a country-lock was detected in text, capture it.
     if not job.country:
-        m = re.search(r"authoriz(?:e|s)ed to work in ([A-Za-z .]+)", job.description, re.I)
+        m = re.search(r"authoriz(?:e|s)ed to work in ([A-Za-z .]+)", job.description, re.IGNORECASE)
         if m:
             token = m.group(1).strip(" .").lower()
             for hint, (country, region) in _COUNTRY_HINTS.items():
@@ -190,7 +189,7 @@ def _llm_label(job: Job, llm_client, cfg) -> None:
     )
     try:
         out = complete(system, job.description[:3000], max_tokens=40, client=llm_client, cfg=cfg)
-    except Exception as exc:  # labels are optional; never fail the pipeline
+    except Exception as exc:  # noqa: BLE001 - labels are optional; never fail the pipeline
         log.debug("LLM label fallback failed: %s", exc)
         return
     for line in out.splitlines():

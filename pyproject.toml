@@ -17,3 +17,18 @@ dependencies = [
 # the project itself; uv just manages the venv and dependencies. The code runs
 # via `uv run python -m src.main`.
 package = false
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.414",
+    "ruff>=0.16.8",
+]
+
+[tool.pyright]
+# Resolve against the uv-managed venv and treat the repo root as an import root
+# so `import src.*` resolves. Matches what `uv run pyright` uses, so the editor
+# and CLI agree.
+venvPath = "."
+venv = ".venv"
+include = ["src", "scripts"]
+typeCheckingMode = "basic"

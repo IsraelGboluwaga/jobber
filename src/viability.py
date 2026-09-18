@@ -79,15 +79,16 @@ def evaluate(jobs: list[Job], cfg) -> tuple[list[Job], list[Dropped]]:
             dropped.append(Dropped(job, f"{job.region} {job.job_type}: won't hire/sponsor from NG"))
             continue
 
-        if job.job_type == "remote" and job.remote_scope in ("country-locked", "region-locked"):
-            if not _africa_eligible(job, africa_signals) and not _region_matches(job.region, welcome):
-                dropped.append(Dropped(job, f"Remote locked to a place I can't work ({job.remote_scope})"))
-                continue
+        if (job.job_type == "remote" and job.remote_scope in ("country-locked", "region-locked")
+                and not _africa_eligible(job, africa_signals) and not _region_matches(job.region, welcome)):
+            dropped.append(Dropped(job, f"Remote locked to a place I can't work ({job.remote_scope})"))
+            continue
 
         lo, hi = _fx_to_usd(job, fx)
         if lo is not None or hi is not None:
-            top = hi or lo
-            bottom = lo or hi
+            top = hi if hi is not None else lo
+            bottom = lo if lo is not None else hi
+            assert top is not None and bottom is not None
             if top < min_usd or bottom > max_usd:
                 dropped.append(Dropped(job, f"Salary ~${int(bottom):,}-${int(top):,} USD outside band"))
                 continue

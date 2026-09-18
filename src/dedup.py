@@ -65,9 +65,7 @@ def collapse_duplicates(jobs: list[Job]) -> list[Job]:
         # Prefer direct over board; otherwise keep the one with a longer description.
         existing_direct = existing.source_type == DIRECT_SOURCE_TYPE
         job_direct = job.source_type == DIRECT_SOURCE_TYPE
-        if job_direct and not existing_direct:
-            best[key] = job
-        elif job_direct == existing_direct and len(job.description) > len(existing.description):
+        if job_direct and not existing_direct or job_direct == existing_direct and len(job.description) > len(existing.description):
             best[key] = job
     # second pass: unique job_id
     by_id: dict[str, Job] = {}

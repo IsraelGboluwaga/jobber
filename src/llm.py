@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -62,7 +61,12 @@ def complete(system: str, user: str, max_tokens: int, *, client=None, cfg=None) 
     if client is None or cfg is None:
         raise ValueError("complete() requires client and cfg (build once per run).")
 
-    from openai import APIStatusError, APITimeoutError, APIConnectionError, RateLimitError
+    from openai import (
+        APIConnectionError,
+        APIStatusError,
+        APITimeoutError,
+        RateLimitError,
+    )
 
     model = cfg.llm.get("model", "deepseek-flash")
     extra_body = _thinking_extra_body(cfg)
@@ -70,7 +74,7 @@ def complete(system: str, user: str, max_tokens: int, *, client=None, cfg=None) 
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
     delay = 1.0
-    last_exc: Optional[Exception] = None
+    last_exc: Exception | None = None
     for attempt in range(3):
         try:
             resp = client.chat.completions.create(

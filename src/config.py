@@ -6,6 +6,7 @@ Actions in CI). Nothing here ever writes a secret to disk.
 """
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,8 +18,8 @@ try:  # optional locally, absent/irrelevant in CI
     from dotenv import load_dotenv
 
     load_dotenv()
-except Exception:  # pragma: no cover - dotenv is a convenience only
-    pass
+except Exception as exc:  # noqa: BLE001 - pragma: no cover - dotenv is a convenience only
+    logging.getLogger(__name__).debug("dotenv load skipped: %s", exc)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG_PATH = REPO_ROOT / "config.yaml"
@@ -35,7 +36,7 @@ class Secrets:
     ntfy_topic: str = ""
 
     @classmethod
-    def from_env(cls) -> "Secrets":
+    def from_env(cls) -> Secrets:
         return cls(
             deepseek_api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
             notion_token=os.environ.get("NOTION_TOKEN", ""),

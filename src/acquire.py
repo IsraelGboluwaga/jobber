@@ -7,10 +7,11 @@ source_type="direct" so viability can rank it above plain board rows.
 from __future__ import annotations
 
 import logging
+import math
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime
-from typing import Any, Optional
+from datetime import UTC, date, datetime
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -37,13 +38,13 @@ class Job:
     region: str = ""
     job_type: str = ""                # remote | hybrid | onsite (from classify)
     remote_scope: str = "unclear"     # worldwide | emea | region-locked | country-locked | unclear
-    posted_date: Optional[str] = None  # ISO date string
+    posted_date: str | None = None  # ISO date string
     seniority: str = ""
     sponsorship: str = "undefined"    # yes | no | undefined
     relocation: str = "undefined"     # yes | no | undefined
     salary: str = ""                  # human-readable, when present
-    salary_min: Optional[float] = None
-    salary_max: Optional[float] = None
+    salary_min: float | None = None
+    salary_max: float | None = None
     currency: str = ""
     questions: list[str] = field(default_factory=list)
     job_id: str = ""                  # set by dedup
@@ -66,14 +67,14 @@ class Job:
 # helpers
 # --------------------------------------------------------------------------
 
-def _iso(value: Any) -> Optional[str]:
+def _iso(value: Any) -> str | None:
     """Best-effort coercion of assorted date shapes to an ISO date string."""
     if value in (None, "", "NaT"):
         return None
     if isinstance(value, (int, float)):  # epoch millis (Ashby/Lever style)
         try:
             secs = value / 1000 if value > 1e12 else value
-            return datetime.utcfromtimestamp(secs).date().isoformat()
+            return datetime.fromtimestamp(secs, UTC).date().isoformat()
         except (ValueError, OverflowError, OSError):
             return None
     if isinstance(value, (datetime, date)):
@@ -81,7 +82,7 @@ def _iso(value: Any) -> Optional[str]:
     s = str(value)
     for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%Y-%m-%dT%H:%M:%S.%f"):
         try:
-            return datetime.strptime(s[: len(fmt) + 6], fmt).date().isoformat()
+            return datetime.strptime(s[: len(fmt) + 6], fmt).date().isoformat()  # noqa: DTZ007 - only the date is kept, tz is irrelevant
         except ValueError:
             continue
     m = re.match(r"(\d{4}-\d{2}-\d{2})", s)
@@ -130,7 +131,7 @@ def acquire_boards(cfg) -> list[Job]:
                     linkedin_fetch_description=True,
                     verbose=0,
                 )
-            except Exception as exc:  # jobspy raises assorted network errors
+            except Exception as exc:  # noqa: BLE001 - jobspy raises assorted network errors
                 log.warning("JobSpy query failed for %r @ %r: %s", title, location, exc)
                 continue
             jobs.extend(_jobs_from_dataframe(df, fallback_location=location))
@@ -143,10 +144,9 @@ def _jobs_from_dataframe(df, fallback_location: str) -> list[Job]:
         return []
     out: list[Job] = []
     for row in df.to_dict("records"):
-        def g(key: str, default: Any = "") -> Any:
+        def g(key: str, default: Any = "", row: dict[str, Any] = row) -> Any:
             val = row.get(key, default)
-            # pandas NaN check without importing pandas here
-            if val is None or (isinstance(val, float) and val != val):
+            if val is None or (isinstance(val, float) and math.isnan(val)):
                 return default
             return val
 
@@ -179,7 +179,7 @@ def _jobs_from_dataframe(df, fallback_location: str) -> list[Job]:
 
 
 def _num(v: Any) -> bool:
-    return isinstance(v, (int, float)) and not (isinstance(v, float) and v != v) and v > 0
+    return isinstance(v, (int, float)) and not (isinstance(v, float) and math.isnan(v)) and v > 0
 
 
 def _salary_str(lo: Any, hi: Any, currency: str, interval: Any) -> str:

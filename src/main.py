@@ -48,7 +48,7 @@ def _load_master_cv() -> dict:
 def _filter_max_age(jobs: list[Job], max_age_days: int) -> list[Job]:
     if not max_age_days:
         return jobs
-    cutoff = dt.date.today() - dt.timedelta(days=max_age_days)
+    cutoff = dt.datetime.now(tz=dt.UTC).date() - dt.timedelta(days=max_age_days)
     kept = []
     for j in jobs:
         if not j.posted_date:
@@ -154,6 +154,7 @@ def run(dry_run: bool = False, config_path: str | None = None) -> int:
     if dry_run:
         log.info("Dry-run: writing nothing to Notion, sending no notification.")
     else:
+        assert store is not None  # guaranteed above: not dry_run => raise on failed init
         for j in kept:
             store.insert(j)
             new_count += 1
@@ -196,13 +197,13 @@ def main(argv: list[str] | None = None) -> int:
     cfg_for_fail = None
     try:
         cfg_for_fail = load_config(args.config)
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort so failure notification still has a topic
+        log.debug("Could not preload config for failure notification: %s", exc)
 
     try:
         return run(dry_run=args.dry_run, config_path=args.config)
     except Exception as exc:
-        log.exception("Run failed: %s", exc)
+        log.exception("Run failed")
         if not args.dry_run and cfg_for_fail is not None:
             notify.notify_failure(cfg_for_fail.ntfy_topic, str(exc)[:200])
         return 1
